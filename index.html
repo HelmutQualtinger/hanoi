@@ -23,7 +23,7 @@
 <meta name="twitter:image" content="screenshot.jpg" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Cinzel:wght@400;600&family=EB+Garamond:ital,wght@0,400;0,600;1,400&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Cinzel:wght@400;600&family=EB+Garamond:ital,wght@0,400;0,600;1,400&family=Noto+Serif:ital,wght@0,600;0,700;1,600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
 <script type="importmap">
 {
   "imports": {
@@ -202,6 +202,45 @@
   #win-stats .stat .num{ font-family:'Space Mono',monospace; font-size:28px; color:var(--parchment); }
   #win-stats .stat .lbl{ font-family:'Cinzel',serif; font-size:10px; letter-spacing:0.18em; text-transform:uppercase; color:var(--moss); margin-top:6px; }
 
+  #rules-overlay{
+    position:fixed; inset:0; z-index:20;
+    background: radial-gradient(ellipse at center, rgba(5,10,8,0.6), rgba(2,4,3,0.94));
+    display:flex; align-items:center; justify-content:center;
+    opacity:0; pointer-events:none; transition: opacity 0.4s ease;
+  }
+  #rules-overlay.show{ opacity:1; pointer-events:auto; }
+  #rules-panel{
+    pointer-events:none;
+    text-align:left;
+    padding: 40px 48px;
+    max-width: 480px; width: 90vw;
+    transform: translateY(14px);
+    transition: transform 0.4s ease;
+  }
+  #rules-overlay.show #rules-panel{ transform: translateY(0); pointer-events:auto; }
+  #rules-panel h2{
+    font-family:'Noto Serif', serif;
+    font-weight: 700;
+    font-size: clamp(22px, 3.2vw, 32px);
+    color: var(--gold);
+    margin: 0 0 4px;
+    text-shadow: 0 0 24px rgba(217,178,106,0.4);
+  }
+  #rules-panel .sub{
+    font-family:'Cinzel', serif; font-size:11px; letter-spacing:0.28em;
+    text-transform:uppercase; color: var(--moss); margin-bottom: 22px;
+  }
+  #rules-panel ul{ list-style:none; margin:0 0 28px; padding:0; }
+  #rules-panel li{
+    position:relative; padding-left: 24px; margin-bottom: 13px;
+    line-height: 1.5; font-size: 15px; color: var(--parchment);
+  }
+  #rules-panel li::before{
+    content:'\2726'; position:absolute; left:0; top:1px;
+    color: var(--gold); font-size: 12px;
+  }
+  #rules-panel .close-row{ text-align:right; }
+
   @media (max-width: 720px){
     #title-block{ left:16px; top:16px; }
     #stats{ right:16px; top:16px; padding:10px 14px; gap:16px; }
@@ -246,6 +285,21 @@
   <div class="divider"></div>
   <button class="new-game" id="btn-solve">Solve</button>
   <button class="new-game" id="btn-music">&#9834; Music</button>
+  <button class="new-game" id="btn-rules">Rules</button>
+</div>
+
+<div id="rules-overlay">
+  <div class="panel" id="rules-panel">
+    <h2 id="rules-heading">The Ancient Law</h2>
+    <div class="sub">As told by the temple guardians</div>
+    <ul>
+      <li>Only one relic may be lifted from the pillars at a time.</li>
+      <li>A relic may only be set upon an empty pillar, or atop a larger relic.</li>
+      <li>No greater relic may ever rest above a lesser one.</li>
+      <li>Move every relic onto the rightmost pillar, in its original order, to restore the seal.</li>
+    </ul>
+    <div class="close-row"><button class="new-game" id="btn-rules-close">Close</button></div>
+  </div>
 </div>
 
 <div id="win-overlay">
@@ -884,6 +938,33 @@ document.getElementById('btn-solve').addEventListener('click', solvePuzzle);
 
 newGame(5);
 
+/* ---------- rules modal, lettered in scattered Vietnamese diacritics ---------- */
+
+const VIET_MARKS = ['́', '̀', '̉', '̃', '̣', '̂', '̆'];
+function vietnameseify(text, chance = 0.4) {
+  return text.split('').map(ch => {
+    if (/[a-zA-Z]/.test(ch) && Math.random() < chance) {
+      return ch + VIET_MARKS[Math.floor(Math.random() * VIET_MARKS.length)];
+    }
+    return ch;
+  }).join('');
+}
+
+const rulesOverlay = document.getElementById('rules-overlay');
+const rulesHeading = document.getElementById('rules-heading');
+function openRules() {
+  rulesHeading.textContent = vietnameseify('The Ancient Law');
+  rulesOverlay.classList.add('show');
+}
+function closeRules() {
+  rulesOverlay.classList.remove('show');
+}
+document.getElementById('btn-rules').addEventListener('click', openRules);
+document.getElementById('btn-rules-close').addEventListener('click', closeRules);
+rulesOverlay.addEventListener('pointerdown', (e) => {
+  if (e.target === rulesOverlay) closeRules();
+});
+
 /* ---------- generative Vietnamese-pentatonic ambient score ----------
    No copyrighted recording is embedded; this is an original ambient
    piece synthesized in-browser from a Vietnamese folk pentatonic
@@ -1036,7 +1117,7 @@ function tick() {
     elTime.textContent = formatTime(Date.now() - startTime);
   }
 
-  controls.autoRotate = selectedPeg === null && !won;
+  controls.autoRotate = selectedPeg === null && !won && !rulesOverlay.classList.contains('show');
   controls.update();
   renderer.render(scene, camera);
 }
