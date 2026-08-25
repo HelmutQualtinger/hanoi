@@ -775,6 +775,7 @@ function pegClick(idx) {
       updateSelectionVisual();
       return;
     }
+    ensureAudioCtx();
     pegs[from].pop();
     pegs[to].push(movingSize);
     moves++;
@@ -819,6 +820,7 @@ function animateMove(size, from, to) {
     onDone: () => {
       layoutPegInstant(to);
       busy = false;
+      playClack(size);
       checkWin();
     },
   };
@@ -885,6 +887,7 @@ function solvePuzzle() {
   updateSelectionVisual();
   const plan = planSolve(pegs, diskCount, 2);
   if (plan.length === 0) return;
+  ensureAudioCtx();
   autoSolving = true;
   setControlsDisabled(true);
   let i = 0;
@@ -976,10 +979,58 @@ let audioCtx = null;
 let musicOn = false;
 let musicSession = null;
 
-function startMusic() {
+function ensureAudioCtx() {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   if (audioCtx.state === 'suspended') audioCtx.resume();
-  const ctx = audioCtx;
+  return audioCtx;
+}
+
+/* ---------- placement click, louder for bigger relics ---------- */
+
+let clackNoiseBuffer = null;
+function getClackNoiseBuffer(ctx) {
+  if (!clackNoiseBuffer) {
+    const len = Math.floor(ctx.sampleRate * 0.18);
+    clackNoiseBuffer = ctx.createBuffer(1, len, ctx.sampleRate);
+    const data = clackNoiseBuffer.getChannelData(0);
+    for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2);
+  }
+  return clackNoiseBuffer;
+}
+
+function playClack(size) {
+  const ctx = ensureAudioCtx();
+  const t0 = ctx.currentTime;
+  const sizeFrac = (size - 1) / Math.max(1, diskCount - 1); // 0 = smallest, 1 = largest
+  const volume = 0.16 + sizeFrac * 0.34; // bigger relic -> louder
+
+  const noise = ctx.createBufferSource();
+  noise.buffer = getClackNoiseBuffer(ctx);
+  const noiseFilter = ctx.createBiquadFilter();
+  noiseFilter.type = 'bandpass';
+  noiseFilter.frequency.value = 1800 - sizeFrac * 1200;
+  noiseFilter.Q.value = 0.9;
+  const noiseGain = ctx.createGain();
+  noiseGain.gain.setValueAtTime(volume, t0);
+  noiseGain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.14 + sizeFrac * 0.05);
+  noise.connect(noiseFilter).connect(noiseGain).connect(ctx.destination);
+  noise.start(t0);
+  noise.stop(t0 + 0.25);
+
+  const thump = ctx.createOscillator();
+  thump.type = 'sine';
+  thump.frequency.setValueAtTime(240 - sizeFrac * 150, t0);
+  thump.frequency.exponentialRampToValueAtTime(55, t0 + 0.12);
+  const thumpGain = ctx.createGain();
+  thumpGain.gain.setValueAtTime(volume * 0.8, t0);
+  thumpGain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.16 + sizeFrac * 0.06);
+  thump.connect(thumpGain).connect(ctx.destination);
+  thump.start(t0);
+  thump.stop(t0 + 0.3);
+}
+
+function startMusic() {
+  const ctx = ensureAudioCtx();
   const now = ctx.currentTime;
 
   const master = ctx.createGain();
