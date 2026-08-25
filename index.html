@@ -1,0 +1,1046 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>The Temple of Hanoi</title>
+<meta name="description" content="A 3D Towers of Hanoi game set in a lost jungle temple, built with Three.js. Move the sacred relics between three stone pillars to restore the seal." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%97%BF%EF%B8%8F%3C/text%3E%3C/svg%3E" />
+
+<!-- Social media preview (Open Graph + Twitter Card). Uses relative URLs,
+     so they only resolve to an image once this page is hosted at a public
+     URL alongside screenshot.jpg -- update og:url to the deployed address. -->
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="The Temple of Hanoi" />
+<meta property="og:title" content="The Temple of Hanoi" />
+<meta property="og:description" content="A 3D Towers of Hanoi game set in a lost jungle temple, built with Three.js. Move the sacred relics between three stone pillars to restore the seal." />
+<meta property="og:image" content="screenshot.jpg" />
+<meta property="og:image:width" content="1512" />
+<meta property="og:image:height" content="794" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="The Temple of Hanoi" />
+<meta name="twitter:description" content="A 3D Towers of Hanoi game set in a lost jungle temple, built with Three.js." />
+<meta name="twitter:image" content="screenshot.jpg" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Cinzel:wght@400;600&family=EB+Garamond:ital,wght@0,400;0,600;1,400&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+  }
+}
+</script>
+<style>
+  :root{
+    --void: #05090a;
+    --stone-1: #0d1712;
+    --stone-2: #16241c;
+    --moss: #4c7a56;
+    --gold: #d9b26a;
+    --gold-dim: #8f7343;
+    --parchment: #e9dfc6;
+    --ruby: #c23b4f;
+    --ok: #6fbf8f;
+  }
+  *{ box-sizing: border-box; }
+  html,body{
+    margin:0; padding:0; width:100%; height:100%; overflow:hidden;
+    background: var(--void);
+    font-family:'EB Garamond', serif;
+    color: var(--parchment);
+    cursor: default;
+  }
+  #scene{ position:fixed; inset:0; display:block; }
+
+  /* vignette to deepen the jungle darkness at the frame edge */
+  #vignette{
+    position:fixed; inset:0; pointer-events:none; z-index:5;
+    background: radial-gradient(ellipse at center, rgba(0,0,0,0) 45%, rgba(2,6,4,0.55) 78%, rgba(1,3,2,0.92) 100%);
+  }
+  #grain{
+    position:fixed; inset:0; pointer-events:none; z-index:6; opacity:0.05; mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  .hud{ position:fixed; z-index:10; pointer-events:none; }
+  .panel{
+    pointer-events:auto;
+    background: linear-gradient(180deg, rgba(13,23,18,0.82), rgba(8,14,11,0.86));
+    border: 1px solid rgba(217,178,106,0.28);
+    border-radius: 6px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.03);
+    backdrop-filter: blur(3px);
+  }
+
+  #title-block{ top: 28px; left: 32px; max-width: 60vw; }
+  #title-block h1{
+    font-family:'Cinzel Decorative', serif;
+    font-weight:900;
+    font-size: clamp(22px, 3vw, 38px);
+    letter-spacing: 0.04em;
+    margin:0;
+    color: var(--gold);
+    text-shadow: 0 0 18px rgba(217,178,106,0.35), 0 2px 0 rgba(0,0,0,0.6);
+  }
+  #title-block .sub{
+    font-family:'Cinzel', serif;
+    font-size: 12px;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: var(--moss);
+    margin-top: 4px;
+  }
+
+  #stats{
+    top: 28px; right: 32px;
+    padding: 14px 22px;
+    display:flex; gap: 26px;
+  }
+  #stats .stat{ text-align:center; min-width: 64px; }
+  #stats .stat .num{
+    font-family:'Space Mono', monospace;
+    font-size: 22px;
+    color: var(--gold);
+    line-height: 1;
+  }
+  #stats .stat .lbl{
+    font-family:'Cinzel', serif;
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--moss);
+    margin-top: 6px;
+  }
+
+  #controls{
+    bottom: 28px; left: 50%; transform: translateX(-50%);
+    padding: 14px 20px;
+    display:flex; align-items:center; gap: 18px;
+  }
+  #controls .group{ display:flex; align-items:center; gap:8px; }
+  #controls .label{
+    font-family:'Cinzel', serif; font-size:10px; letter-spacing:0.18em;
+    text-transform:uppercase; color: var(--moss); margin-right:4px;
+  }
+  .divider{ width:1px; height:26px; background: rgba(217,178,106,0.22); }
+
+  button{
+    font-family:'Cinzel', serif;
+    font-size: 13px;
+    letter-spacing: 0.04em;
+    color: var(--parchment);
+    background: linear-gradient(180deg, #223327, #131f18);
+    border: 1px solid rgba(217,178,106,0.35);
+    border-radius: 4px;
+    padding: 8px 14px;
+    cursor: pointer;
+    transition: all 0.18s ease;
+  }
+  button:hover{
+    border-color: var(--gold);
+    color: var(--gold);
+    box-shadow: 0 0 14px rgba(217,178,106,0.25);
+    transform: translateY(-1px);
+  }
+  button.active{
+    background: linear-gradient(180deg, #3a5240, #1c2a20);
+    border-color: var(--gold);
+    color: var(--gold);
+    box-shadow: inset 0 0 10px rgba(217,178,106,0.25);
+  }
+  button.diskbtn{ width: 36px; padding: 8px 0; text-align:center; }
+  button.new-game{ padding: 8px 20px; }
+  button:disabled{ opacity: 0.35; cursor: not-allowed; pointer-events: none; transform:none; box-shadow:none; }
+
+  #hint{
+    bottom: 86px; left:50%; transform:translateX(-50%);
+    font-family:'EB Garamond', serif; font-style: italic;
+    font-size: 14px; color: rgba(233,223,198,0.65);
+    text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+    text-align:center; width: 90vw;
+  }
+
+  #toast{
+    top: 46%; left:50%; transform:translate(-50%,-50%) scale(0.92);
+    padding: 12px 26px;
+    font-family:'Cinzel', serif; font-size: 13px; letter-spacing:0.06em;
+    color: var(--ruby); border-color: rgba(194,59,79,0.5);
+    opacity: 0; pointer-events:none; transition: opacity 0.25s ease, transform 0.25s ease;
+  }
+  #toast.show{ opacity:1; transform:translate(-50%,-50%) scale(1); }
+
+  #win-overlay{
+    position:fixed; inset:0; z-index:20;
+    background: radial-gradient(ellipse at center, rgba(5,10,8,0.55), rgba(2,4,3,0.92));
+    display:flex; align-items:center; justify-content:center;
+    opacity:0; pointer-events:none; transition: opacity 0.6s ease;
+  }
+  #win-overlay.show{ opacity:1; pointer-events:auto; }
+  #win-panel{
+    pointer-events:none;
+    text-align:center;
+    padding: 44px 60px;
+    max-width: 90vw;
+    transform: translateY(14px);
+    transition: transform 0.6s ease;
+  }
+  #win-overlay.show #win-panel{ transform: translateY(0); pointer-events:auto; }
+  #win-panel h2{
+    font-family:'Cinzel Decorative', serif; font-weight:900;
+    font-size: clamp(24px, 4vw, 42px);
+    color: var(--gold);
+    margin: 0 0 6px;
+    text-shadow: 0 0 30px rgba(217,178,106,0.5);
+  }
+  #win-panel .sub{
+    font-family:'Cinzel', serif; font-size:11px; letter-spacing:0.3em;
+    text-transform:uppercase; color: var(--moss); margin-bottom: 26px;
+  }
+  #win-stats{ display:flex; gap: 40px; justify-content:center; margin-bottom: 30px; }
+  #win-stats .stat .num{ font-family:'Space Mono',monospace; font-size:28px; color:var(--parchment); }
+  #win-stats .stat .lbl{ font-family:'Cinzel',serif; font-size:10px; letter-spacing:0.18em; text-transform:uppercase; color:var(--moss); margin-top:6px; }
+
+  @media (max-width: 720px){
+    #title-block{ left:16px; top:16px; }
+    #stats{ right:16px; top:16px; padding:10px 14px; gap:16px; }
+    #stats .stat .num{ font-size:17px; }
+    #controls{ flex-wrap: wrap; justify-content:center; padding:10px 14px; gap:10px; bottom:16px; width: 92vw; }
+    #hint{ display:none; }
+  }
+</style>
+</head>
+<body>
+
+<div id="scene"></div>
+<div id="vignette"></div>
+<div id="grain"></div>
+
+<div class="hud" id="title-block">
+  <h1>The Temple of Hanoi</h1>
+  <div class="sub">Move the sacred relics &mdash; disturb not their order</div>
+</div>
+
+<div class="hud panel" id="stats">
+  <div class="stat"><div class="num" id="stat-moves">0</div><div class="lbl">Moves</div></div>
+  <div class="stat"><div class="num" id="stat-optimal">7</div><div class="lbl">Optimal</div></div>
+  <div class="stat"><div class="num" id="stat-time">00:00</div><div class="lbl">Time</div></div>
+</div>
+
+<div class="hud" id="hint">Click a pillar to raise its topmost relic &mdash; click another pillar to set it down.</div>
+
+<div class="hud panel" id="toast"></div>
+
+<div class="hud panel" id="controls">
+  <div class="group">
+    <span class="label">Relics</span>
+    <button class="diskbtn" data-n="3">3</button>
+    <button class="diskbtn" data-n="4">4</button>
+    <button class="diskbtn active" data-n="5">5</button>
+    <button class="diskbtn" data-n="6">6</button>
+    <button class="diskbtn" data-n="7">7</button>
+  </div>
+  <div class="divider"></div>
+  <button class="new-game" id="btn-newgame">Restore the Seal</button>
+  <div class="divider"></div>
+  <button class="new-game" id="btn-solve">Solve</button>
+  <button class="new-game" id="btn-music">&#9834; Music</button>
+</div>
+
+<div id="win-overlay">
+  <div class="panel" id="win-panel">
+    <h2>The Seal Is Restored</h2>
+    <div class="sub">The temple sleeps once more</div>
+    <div id="win-stats">
+      <div class="stat"><div class="num" id="win-moves">0</div><div class="lbl">Moves</div></div>
+      <div class="stat"><div class="num" id="win-optimal">0</div><div class="lbl">Optimal</div></div>
+      <div class="stat"><div class="num" id="win-time">00:00</div><div class="lbl">Time</div></div>
+    </div>
+    <button class="new-game" id="btn-again">Enter Again</button>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+/* ---------- renderer / scene / camera ---------- */
+
+const container = document.getElementById('scene');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+container.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x04070a);
+scene.fog = new THREE.FogExp2(0x050b09, 0.032);
+
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 200);
+camera.position.set(0, 8.5, 13.5);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.07;
+controls.minDistance = 6.5;
+controls.maxDistance = 11.5;
+controls.maxPolarAngle = 1.48;
+controls.minPolarAngle = 0.35;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 0.22;
+controls.target.set(0, 2.4, 0);
+controls.update();
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+/* ---------- procedural textures ---------- */
+
+function makeStoneTexture(size, base, moss) {
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = base;
+  ctx.fillRect(0, 0, size, size);
+  for (let i = 0; i < size * size * 0.02; i++) {
+    const x = Math.random() * size, y = Math.random() * size, r = Math.random() * 2.4 + 0.3;
+    ctx.fillStyle = Math.random() < 0.5
+      ? `rgba(5,8,6,${Math.random() * 0.35})`
+      : `rgba(70,80,60,${Math.random() * 0.22})`;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+  }
+  for (let i = 0; i < 46; i++) {
+    const x = Math.random() * size, y = Math.random() * size, r = Math.random() * size * 0.09 + size * 0.02;
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, moss); g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+  }
+  // cracks
+  ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+  for (let i = 0; i < 14; i++) {
+    ctx.lineWidth = Math.random() * 1.6 + 0.4;
+    ctx.beginPath();
+    let x = Math.random() * size, y = Math.random() * size;
+    ctx.moveTo(x, y);
+    for (let s = 0; s < 6; s++) {
+      x += (Math.random() - 0.5) * size * 0.12;
+      y += (Math.random() - 0.5) * size * 0.12;
+      ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+function makeGlowSprite() {
+  const size = 64;
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  const ctx = c.getContext('2d');
+  const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  g.addColorStop(0, 'rgba(255,255,255,1)');
+  g.addColorStop(0.25, 'rgba(214,255,158,0.9)');
+  g.addColorStop(1, 'rgba(214,255,158,0)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, size, size);
+  return new THREE.CanvasTexture(c);
+}
+
+const stoneTexLarge = makeStoneTexture(512, '#1a221b', 'rgba(60,95,65,0.30)');
+stoneTexLarge.repeat.set(6, 6);
+const stoneTexSmall = makeStoneTexture(512, '#242f26', 'rgba(70,105,72,0.28)');
+stoneTexSmall.repeat.set(2, 2);
+
+/* ---------- lighting ---------- */
+
+scene.add(new THREE.AmbientLight(0x1c2a1f, 0.55));
+const hemi = new THREE.HemisphereLight(0x203524, 0x02040a, 0.6);
+scene.add(hemi);
+
+const moon = new THREE.DirectionalLight(0xaecfff, 1.15);
+moon.position.set(9, 22, -10);
+const MOON_ORBIT_RADIUS = 24;
+const MOON_ORBIT_HEIGHT = 21;
+const MOON_ORBIT_SPEED = (Math.PI * 2) / 20; // full revolution every 20s
+moon.castShadow = true;
+moon.shadow.mapSize.set(2048, 2048);
+moon.shadow.camera.left = -14; moon.shadow.camera.right = 14;
+moon.shadow.camera.top = 14; moon.shadow.camera.bottom = -14;
+moon.shadow.camera.near = 5; moon.shadow.camera.far = 50;
+moon.shadow.bias = -0.0015;
+scene.add(moon);
+
+const torches = [];
+function makeTorch(x, z) {
+  const light = new THREE.PointLight(0xff9d4d, 2.2, 10, 2.1);
+  light.position.set(x, 2.3, z);
+  light.castShadow = false;
+  scene.add(light);
+
+  const poleMat = new THREE.MeshStandardMaterial({ color: 0x2a1c12, roughness: 0.9 });
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 2.0, 8), poleMat);
+  pole.position.set(x, 1.0, z);
+  pole.castShadow = true;
+  scene.add(pole);
+
+  const flameMat = new THREE.MeshStandardMaterial({ color: 0xff8a3c, emissive: 0xff6a1a, emissiveIntensity: 2.2, roughness: 0.5 });
+  const flame = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.34, 8), flameMat);
+  flame.position.set(x, 2.15, z);
+  scene.add(flame);
+
+  torches.push({ light, flame, phase: Math.random() * 10 });
+}
+makeTorch(-6.6, 5.6);
+makeTorch(6.6, -5.6);
+
+/* ---------- ground + temple dais ---------- */
+
+const ground = new THREE.Mesh(
+  new THREE.CircleGeometry(70, 64),
+  new THREE.MeshStandardMaterial({ map: stoneTexLarge, roughness: 1, color: 0x0d140f })
+);
+ground.rotation.x = -Math.PI / 2;
+ground.receiveShadow = true;
+scene.add(ground);
+
+const platformTop = 1.3;
+function makeTier(radius, height, y, tex) {
+  const mesh = new THREE.Mesh(
+    new THREE.CylinderGeometry(radius, radius * 1.08, height, 48),
+    new THREE.MeshStandardMaterial({ map: tex, roughness: 0.95, color: 0x2a352b })
+  );
+  mesh.position.y = y;
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  scene.add(mesh);
+  return mesh;
+}
+makeTier(9.0, 0.5, 0.25, stoneTexLarge);
+makeTier(7.4, 0.4, 0.7, stoneTexSmall);
+makeTier(6.0, 0.4, 1.1, stoneTexSmall);
+
+/* underbrush scattered around the dais */
+{
+  const bushGeo = new THREE.IcosahedronGeometry(1, 0);
+  const bushMat = new THREE.MeshStandardMaterial({ color: 0x27442e, roughness: 1 });
+  const bush = new THREE.InstancedMesh(bushGeo, bushMat, 90);
+  const dummy = new THREE.Object3D();
+  for (let i = 0; i < 90; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const r = 9.6 + Math.random() * 4.2;
+    const s = 0.25 + Math.random() * 0.5;
+    dummy.position.set(Math.cos(a) * r, s * 0.5, Math.sin(a) * r);
+    dummy.rotation.set(Math.random(), Math.random(), Math.random());
+    dummy.scale.setScalar(s);
+    dummy.updateMatrix();
+    bush.setMatrixAt(i, dummy.matrix);
+  }
+  bush.castShadow = true;
+  bush.receiveShadow = true;
+  scene.add(bush);
+}
+
+/* ---------- jungle trees, ringed at full 360deg ---------- */
+
+{
+  const ringDefs = [
+    { r: 14, count: 26, hMin: 5, hMax: 8, shade: 0.16 },
+    { r: 21, count: 34, hMin: 6, hMax: 10, shade: 0.12 },
+    { r: 30, count: 44, hMin: 8, hMax: 13, shade: 0.085 },
+    { r: 42, count: 56, hMin: 10, hMax: 17, shade: 0.055 },
+  ];
+  const totalTrunks = ringDefs.reduce((s, r) => s + r.count, 0);
+
+  const trunkGeo = new THREE.CylinderGeometry(0.14, 0.24, 1, 6);
+  const trunkMat = new THREE.MeshStandardMaterial({ color: 0x0c0f0a, roughness: 1 });
+  const trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, totalTrunks);
+
+  const foliageGeo = new THREE.IcosahedronGeometry(1, 1);
+  const foliageMat = new THREE.MeshStandardMaterial({ color: 0x1c3322, roughness: 1, flatShading: true });
+  const foliage = new THREE.InstancedMesh(foliageGeo, foliageMat, totalTrunks * 2);
+
+  const dummy = new THREE.Object3D();
+  let ti = 0, fi = 0;
+  const col = new THREE.Color();
+
+  ringDefs.forEach(ring => {
+    for (let i = 0; i < ring.count; i++) {
+      const a = (i / ring.count) * Math.PI * 2 + Math.random() * 0.35;
+      const r = ring.r + (Math.random() - 0.5) * 3.2;
+      const h = ring.hMin + Math.random() * (ring.hMax - ring.hMin);
+      const x = Math.cos(a) * r, z = Math.sin(a) * r;
+
+      dummy.position.set(x, h / 2, z);
+      dummy.rotation.y = Math.random() * Math.PI * 2;
+      dummy.scale.set(1, h, 1);
+      dummy.updateMatrix();
+      trunks.setMatrixAt(ti, dummy.matrix);
+      col.setRGB(ring.shade * 0.3, ring.shade * 0.4, ring.shade * 0.3);
+      trunks.setColorAt(ti, col);
+      ti++;
+
+      for (let k = 0; k < 2; k++) {
+        const fy = h * (0.65 + k * 0.22);
+        const fs = h * (0.34 - k * 0.08) * (0.8 + Math.random() * 0.4);
+        dummy.position.set(x + (Math.random() - 0.5) * 0.6, fy, z + (Math.random() - 0.5) * 0.6);
+        dummy.rotation.set(Math.random(), Math.random(), Math.random());
+        dummy.scale.set(fs, fs * 1.1, fs);
+        dummy.updateMatrix();
+        foliage.setMatrixAt(fi, dummy.matrix);
+        const g = ring.shade * (0.7 + Math.random() * 0.5);
+        col.setRGB(g * 0.35, g * 0.62, g * 0.4);
+        foliage.setColorAt(fi, col);
+        fi++;
+      }
+    }
+  });
+  // any unused foliage slots (shouldn't be any, count matches exactly) -- safe no-op
+  trunks.instanceMatrix.needsUpdate = true;
+  foliage.instanceMatrix.needsUpdate = true;
+  trunks.castShadow = false;
+  foliage.castShadow = false;
+  scene.add(trunks, foliage);
+}
+
+/* ---------- fireflies ---------- */
+
+const fireflyCount = 140;
+const fireflyGeo = new THREE.BufferGeometry();
+const fireflyPos = new Float32Array(fireflyCount * 3);
+const fireflyPhase = new Float32Array(fireflyCount);
+const fireflyRadius = new Float32Array(fireflyCount);
+const fireflyBaseY = new Float32Array(fireflyCount);
+const fireflyAngle = new Float32Array(fireflyCount);
+for (let i = 0; i < fireflyCount; i++) {
+  const r = 5 + Math.random() * 30;
+  const a = Math.random() * Math.PI * 2;
+  fireflyRadius[i] = r;
+  fireflyAngle[i] = a;
+  fireflyBaseY[i] = 1 + Math.random() * 6;
+  fireflyPhase[i] = Math.random() * Math.PI * 2;
+  fireflyPos[i * 3] = Math.cos(a) * r;
+  fireflyPos[i * 3 + 1] = fireflyBaseY[i];
+  fireflyPos[i * 3 + 2] = Math.sin(a) * r;
+}
+fireflyGeo.setAttribute('position', new THREE.BufferAttribute(fireflyPos, 3));
+const fireflyMat = new THREE.PointsMaterial({
+  size: 0.22,
+  map: makeGlowSprite(),
+  transparent: true,
+  depthWrite: false,
+  blending: THREE.AdditiveBlending,
+  color: 0xdcffb0,
+});
+const fireflies = new THREE.Points(fireflyGeo, fireflyMat);
+scene.add(fireflies);
+
+/* ---------- game state ---------- */
+
+const PEG_X = [-3.6, 0, 3.6];
+const DISK_HEIGHT = 0.42;
+const GEM_COLORS = ['#e8f3ff', '#8b5fbf', '#2f6fdb', '#1f9d63', '#d8a93a', '#d9722c', '#c23b4f'];
+
+let diskCount = 5;
+let pegs = [[], [], []];
+let diskMeshes = new Map();
+let selectedPeg = null;
+let moves = 0;
+let busy = false;
+let startTime = null;
+let won = false;
+let autoSolving = false;
+
+const diskGroup = new THREE.Group();
+scene.add(diskGroup);
+
+const hitCylinders = [];
+for (let i = 0; i < 3; i++) {
+  const geo = new THREE.CylinderGeometry(1.85, 1.85, 6, 12);
+  const mat = new THREE.MeshBasicMaterial({ visible: false });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.set(PEG_X[i], platformTop + 3, 0);
+  mesh.userData.pegIndex = i;
+  scene.add(mesh);
+  hitCylinders.push(mesh);
+
+  // visible stone peg
+  const pegMat = new THREE.MeshStandardMaterial({ color: 0x2c3a2d, roughness: 0.75, metalness: 0.05, map: stoneTexSmall });
+  const peg = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.2, 3.2, 16), pegMat);
+  peg.position.set(PEG_X[i], platformTop + 1.6, 0);
+  peg.castShadow = true;
+  peg.receiveShadow = true;
+  scene.add(peg);
+
+  // peg cap ring (carved detail)
+  const capMat = new THREE.MeshStandardMaterial({ color: 0x3a4a3a, roughness: 0.6 });
+  const cap = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.05, 8, 20), capMat);
+  cap.rotation.x = Math.PI / 2;
+  cap.position.set(PEG_X[i], platformTop + 3.15, 0);
+  cap.castShadow = true;
+  scene.add(cap);
+}
+
+const selectRing = new THREE.Mesh(
+  new THREE.TorusGeometry(0.05, 0.05, 8, 24),
+  new THREE.MeshStandardMaterial({ color: 0xd9b26a, emissive: 0xd9b26a, emissiveIntensity: 1.4 })
+);
+selectRing.visible = false;
+scene.add(selectRing);
+
+function diskRadius(size) { return 0.42 + size * 0.155; }
+
+function buildDisks() {
+  diskGroup.clear();
+  diskMeshes.clear();
+  for (let size = 1; size <= diskCount; size++) {
+    const r = diskRadius(size);
+    const geo = new THREE.CylinderGeometry(r, r * 0.94, DISK_HEIGHT, 32);
+    const color = new THREE.Color(GEM_COLORS[(size - 1) % GEM_COLORS.length]);
+    const mat = new THREE.MeshPhysicalMaterial({
+      color, roughness: 0.22, metalness: 0.1,
+      clearcoat: 1, clearcoatRoughness: 0.12,
+      emissive: color, emissiveIntensity: 0.06,
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    mesh.userData.size = size;
+    diskGroup.add(mesh);
+    diskMeshes.set(size, mesh);
+  }
+  layoutPegInstant(0);
+  layoutPegInstant(1);
+  layoutPegInstant(2);
+}
+
+function layoutPegInstant(pegIndex) {
+  pegs[pegIndex].forEach((size, i) => {
+    const mesh = diskMeshes.get(size);
+    mesh.position.set(PEG_X[pegIndex], platformTop + DISK_HEIGHT * (i + 0.5), 0);
+  });
+}
+
+function stackHeight(pegIndex) {
+  return pegs[pegIndex].length;
+}
+
+/* ---------- HUD ---------- */
+
+const elMoves = document.getElementById('stat-moves');
+const elOptimal = document.getElementById('stat-optimal');
+const elTime = document.getElementById('stat-time');
+const elToast = document.getElementById('toast');
+const winOverlay = document.getElementById('win-overlay');
+
+function updateHUD() {
+  elMoves.textContent = moves;
+  elOptimal.textContent = Math.pow(2, diskCount) - 1;
+}
+
+function formatTime(ms) {
+  const s = Math.floor(ms / 1000);
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return `${String(m).padStart(2, '0')}:${String(r).padStart(2, '0')}`;
+}
+
+let toastTimer = null;
+const FLAVOR_ERRORS = [
+  'The ancients forbid this passage.',
+  'A smaller guardian must rest above.',
+  'The seal resists your hand.',
+  'Only the lesser may crown the greater.',
+];
+function showToast() {
+  elToast.textContent = FLAVOR_ERRORS[Math.floor(Math.random() * FLAVOR_ERRORS.length)];
+  elToast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => elToast.classList.remove('show'), 1200);
+}
+
+/* ---------- interaction ---------- */
+
+const raycaster = new THREE.Raycaster();
+const pointerNDC = new THREE.Vector2();
+let downPos = null, downTime = 0;
+
+renderer.domElement.addEventListener('pointerdown', (e) => {
+  downPos = { x: e.clientX, y: e.clientY };
+  downTime = performance.now();
+});
+renderer.domElement.addEventListener('pointerup', (e) => {
+  if (!downPos) return;
+  const dist = Math.hypot(e.clientX - downPos.x, e.clientY - downPos.y);
+  const elapsed = performance.now() - downTime;
+  downPos = null;
+  if (dist > 6 || elapsed > 450) return;
+  handleClick(e);
+});
+
+function handleClick(e) {
+  if (busy || won || autoSolving) return;
+  const rect = renderer.domElement.getBoundingClientRect();
+  pointerNDC.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+  pointerNDC.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(pointerNDC, camera);
+  const hits = raycaster.intersectObjects(hitCylinders, false);
+  if (hits.length === 0) return;
+  pegClick(hits[0].object.userData.pegIndex);
+}
+
+function pegClick(idx) {
+  if (selectedPeg === null) {
+    if (pegs[idx].length === 0) return;
+    selectedPeg = idx;
+    updateSelectionVisual();
+  } else if (selectedPeg === idx) {
+    selectedPeg = null;
+    updateSelectionVisual();
+  } else {
+    const from = selectedPeg, to = idx;
+    const movingSize = pegs[from][pegs[from].length - 1];
+    const targetTop = pegs[to][pegs[to].length - 1];
+    if (targetTop !== undefined && targetTop < movingSize) {
+      showToast();
+      selectedPeg = null;
+      updateSelectionVisual();
+      return;
+    }
+    pegs[from].pop();
+    pegs[to].push(movingSize);
+    moves++;
+    updateHUD();
+    selectedPeg = null;
+    updateSelectionVisual();
+    animateMove(movingSize, from, to);
+  }
+}
+
+function updateSelectionVisual() {
+  if (selectedPeg === null) {
+    selectRing.visible = false;
+    return;
+  }
+  const topSize = pegs[selectedPeg][pegs[selectedPeg].length - 1];
+  const r = diskRadius(topSize) + 0.18;
+  selectRing.geometry.dispose();
+  selectRing.geometry = new THREE.TorusGeometry(r, 0.045, 8, 28);
+  selectRing.position.set(PEG_X[selectedPeg], platformTop + DISK_HEIGHT * pegs[selectedPeg].length + 0.28, 0);
+  selectRing.visible = true;
+}
+
+/* ---------- move animation ---------- */
+
+let anim = null; // { mesh, fromX, toX, fromY, toY, start, duration }
+
+function easeInOutQuad(t) { return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; }
+
+function animateMove(size, from, to) {
+  busy = true;
+  const mesh = diskMeshes.get(size);
+  const fromY = mesh.position.y;
+  const toIndex = pegs[to].length - 1;
+  const toY = platformTop + DISK_HEIGHT * (toIndex + 0.5);
+  anim = {
+    mesh,
+    fromX: PEG_X[from], toX: PEG_X[to],
+    fromY, toY,
+    start: performance.now(),
+    duration: 620,
+    onDone: () => {
+      layoutPegInstant(to);
+      busy = false;
+      checkWin();
+    },
+  };
+}
+
+function stepAnim(now) {
+  if (!anim) return;
+  const t = Math.min(1, (now - anim.start) / anim.duration);
+  const te = easeInOutQuad(t);
+  const arc = Math.sin(Math.PI * t) * 2.6;
+  anim.mesh.position.x = anim.fromX + (anim.toX - anim.fromX) * te;
+  anim.mesh.position.y = anim.fromY + (anim.toY - anim.fromY) * te + arc;
+  anim.mesh.rotation.y += 0.02;
+  if (t >= 1) {
+    const done = anim.onDone;
+    anim = null;
+    done();
+  }
+}
+
+function checkWin() {
+  if (pegs[2].length === diskCount) {
+    won = true;
+    autoSolving = false;
+    setControlsDisabled(false);
+    document.getElementById('win-moves').textContent = moves;
+    document.getElementById('win-optimal').textContent = Math.pow(2, diskCount) - 1;
+    document.getElementById('win-time').textContent = formatTime(Date.now() - startTime);
+    winOverlay.classList.add('show');
+  }
+}
+
+/* ---------- auto-solve ---------- */
+
+const MOVE_DURATION = 620;
+
+function planSolve(startPegs, n, target) {
+  const state = startPegs.map(p => p.slice());
+  const plan = [];
+  const other = (a, b) => 3 - a - b;
+  const locate = (size) => state.findIndex(p => p.includes(size));
+  function solve(k, target) {
+    if (k < 1) return;
+    const src = locate(k);
+    if (src === target) { solve(k - 1, target); return; }
+    const via = other(src, target);
+    solve(k - 1, via);
+    state[src].pop();
+    state[target].push(k);
+    plan.push([src, target]);
+    solve(k - 1, target);
+  }
+  solve(n, target);
+  return plan;
+}
+
+function setControlsDisabled(disabled) {
+  document.querySelectorAll('#controls button').forEach(b => { b.disabled = disabled; });
+}
+
+function solvePuzzle() {
+  if (busy || won || autoSolving) return;
+  selectedPeg = null;
+  updateSelectionVisual();
+  const plan = planSolve(pegs, diskCount, 2);
+  if (plan.length === 0) return;
+  autoSolving = true;
+  setControlsDisabled(true);
+  let i = 0;
+  function step() {
+    if (i >= plan.length) {
+      autoSolving = false;
+      setControlsDisabled(false);
+      return;
+    }
+    const [from, to] = plan[i++];
+    const size = pegs[from][pegs[from].length - 1];
+    pegs[from].pop();
+    pegs[to].push(size);
+    moves++;
+    updateHUD();
+    animateMove(size, from, to);
+    setTimeout(step, MOVE_DURATION + 140);
+  }
+  step();
+}
+
+/* ---------- new game / UI wiring ---------- */
+
+function newGame(n) {
+  diskCount = n;
+  pegs = [Array.from({ length: n }, (_, i) => n - i), [], []];
+  moves = 0;
+  selectedPeg = null;
+  busy = false;
+  won = false;
+  autoSolving = false;
+  anim = null;
+  startTime = Date.now();
+  updateSelectionVisual();
+  buildDisks();
+  updateHUD();
+  winOverlay.classList.remove('show');
+  setControlsDisabled(false);
+}
+
+document.querySelectorAll('.diskbtn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.diskbtn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    newGame(parseInt(btn.dataset.n, 10));
+  });
+});
+document.getElementById('btn-newgame').addEventListener('click', () => newGame(diskCount));
+document.getElementById('btn-again').addEventListener('click', () => newGame(diskCount));
+document.getElementById('btn-solve').addEventListener('click', solvePuzzle);
+
+newGame(5);
+
+/* ---------- generative Vietnamese-pentatonic ambient score ----------
+   No copyrighted recording is embedded; this is an original ambient
+   piece synthesized in-browser from a Vietnamese folk pentatonic
+   scale, plucked like a dan tranh over a soft drone. */
+
+let audioCtx = null;
+let musicOn = false;
+let musicSession = null;
+
+function startMusic() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  const ctx = audioCtx;
+  const now = ctx.currentTime;
+
+  const master = ctx.createGain();
+  master.gain.setValueAtTime(0.0001, now);
+  master.gain.linearRampToValueAtTime(0.32, now + 2.5);
+  master.connect(ctx.destination);
+
+  const dry = ctx.createGain();
+  dry.gain.value = 0.8;
+  dry.connect(master);
+
+  const delay = ctx.createDelay(2.0);
+  delay.delayTime.value = 0.44;
+  const feedback = ctx.createGain();
+  feedback.gain.value = 0.33;
+  const delayFilter = ctx.createBiquadFilter();
+  delayFilter.type = 'lowpass';
+  delayFilter.frequency.value = 2200;
+  delay.connect(feedback);
+  feedback.connect(delayFilter);
+  delayFilter.connect(delay);
+  delay.connect(master);
+
+  const droneOsc = ctx.createOscillator();
+  droneOsc.type = 'sine';
+  droneOsc.frequency.value = 73.42; // D2
+  const droneGain = ctx.createGain();
+  droneGain.gain.value = 0.1;
+  const droneLFO = ctx.createOscillator();
+  droneLFO.frequency.value = 0.08;
+  const droneLFOGain = ctx.createGain();
+  droneLFOGain.gain.value = 1.3;
+  droneLFO.connect(droneLFOGain);
+  droneLFOGain.connect(droneOsc.frequency);
+  droneOsc.connect(droneGain);
+  droneGain.connect(dry);
+  droneOsc.start(now);
+  droneLFO.start(now);
+
+  // D minor-pentatonic across two octaves: a warm, melancholic
+  // scale close to the "oan" mood heard in Vietnamese folk melodies.
+  const scale = [293.66, 349.23, 392.0, 440.0, 523.25, 587.33, 698.46, 783.99];
+  let stopped = false;
+  let timer = null;
+
+  function pluck() {
+    if (stopped) return;
+    const t0 = ctx.currentTime;
+    const freq = scale[Math.floor(Math.random() * scale.length)];
+    const osc = ctx.createOscillator();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(freq, t0);
+    osc.frequency.linearRampToValueAtTime(freq * (1 + (Math.random() - 0.5) * 0.015), t0 + 1.6);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.linearRampToValueAtTime(0.2, t0 + 0.03);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 2.4);
+    osc.connect(g);
+    g.connect(dry);
+    g.connect(delay);
+    osc.start(t0);
+    osc.stop(t0 + 2.6);
+    timer = setTimeout(pluck, 1300 + Math.random() * 1900);
+  }
+  pluck();
+
+  musicSession = {
+    stop() {
+      stopped = true;
+      clearTimeout(timer);
+      const t = ctx.currentTime;
+      master.gain.cancelScheduledValues(t);
+      master.gain.setValueAtTime(master.gain.value, t);
+      master.gain.linearRampToValueAtTime(0, t + 1);
+      setTimeout(() => { droneOsc.stop(); droneLFO.stop(); }, 1100);
+    },
+  };
+}
+
+function stopMusic() {
+  if (musicSession) { musicSession.stop(); musicSession = null; }
+}
+
+const btnMusic = document.getElementById('btn-music');
+btnMusic.addEventListener('click', () => {
+  musicOn = !musicOn;
+  if (musicOn) {
+    startMusic();
+    btnMusic.innerHTML = '&#9835; Music On';
+    btnMusic.classList.add('active');
+  } else {
+    stopMusic();
+    btnMusic.innerHTML = '&#9834; Music';
+    btnMusic.classList.remove('active');
+  }
+});
+
+/* ---------- render loop ---------- */
+
+const clock = new THREE.Clock();
+
+function tick() {
+  requestAnimationFrame(tick);
+  const t = clock.getElapsedTime();
+  const now = performance.now();
+
+  stepAnim(now);
+
+  // moon drifts slowly around the temple, sweeping the shadows with it
+  const moonAngle = t * MOON_ORBIT_SPEED;
+  moon.position.set(
+    Math.cos(moonAngle) * MOON_ORBIT_RADIUS,
+    MOON_ORBIT_HEIGHT + Math.sin(moonAngle * 0.6) * 4,
+    Math.sin(moonAngle) * MOON_ORBIT_RADIUS
+  );
+
+  // torch flicker
+  torches.forEach(tr => {
+    const f = 1.6 + Math.sin(t * 9 + tr.phase) * 0.35 + Math.sin(t * 23 + tr.phase) * 0.15;
+    tr.light.intensity = 1.8 + f * 0.5;
+    tr.flame.scale.setScalar(0.85 + Math.sin(t * 14 + tr.phase) * 0.12);
+  });
+
+  // fireflies drift
+  const pos = fireflyGeo.attributes.position.array;
+  for (let i = 0; i < fireflyCount; i++) {
+    const a = fireflyAngle[i] + t * 0.02;
+    const wob = Math.sin(t * 0.7 + fireflyPhase[i]) * 0.6;
+    pos[i * 3] = Math.cos(a) * (fireflyRadius[i] + wob);
+    pos[i * 3 + 1] = fireflyBaseY[i] + Math.sin(t * 0.9 + fireflyPhase[i]) * 0.7;
+    pos[i * 3 + 2] = Math.sin(a) * (fireflyRadius[i] + wob);
+  }
+  fireflyGeo.attributes.position.needsUpdate = true;
+  fireflyMat.opacity = 0.55 + Math.sin(t * 2) * 0.15;
+
+  if (!won && startTime) {
+    elTime.textContent = formatTime(Date.now() - startTime);
+  }
+
+  controls.autoRotate = selectedPeg === null && !won;
+  controls.update();
+  renderer.render(scene, camera);
+}
+tick();
+</script>
+</body>
+</html>
