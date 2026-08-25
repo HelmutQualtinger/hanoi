@@ -76,7 +76,7 @@
 
   #title-block{ top: 28px; left: 32px; max-width: 60vw; }
   #title-block h1{
-    font-family:'Cinzel Decorative', serif;
+    font-family:'Cinzel Decorative', 'Noto Serif', serif;
     font-weight:900;
     font-size: clamp(22px, 3vw, 38px);
     letter-spacing: 0.04em;
@@ -949,6 +949,8 @@ function vietnameseify(text, chance = 0.4) {
     return ch;
   }).join('');
 }
+
+document.querySelector('#title-block h1').textContent = vietnameseify('The Temple of Hanoi');
 
 const rulesOverlay = document.getElementById('rules-overlay');
 const rulesHeading = document.getElementById('rules-heading');
