@@ -355,11 +355,45 @@ controls.autoRotateSpeed = 0.22;
 controls.target.set(0, 2.4, 0);
 controls.update();
 
-window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
+/* On phones held upright, window aspect < 1 makes the horizontal field
+   of view much narrower than the vertical one, which crops the outer
+   pillars out of frame. In portrait, widen the FOV and pull the camera
+   back just enough to keep all three pillars (plus the widest disk)
+   inside the frame; landscape keeps the original framing untouched.
+   Depends on PEG_X/diskRadius() below -- only evaluated once they
+   exist, since it only ever runs from an event handler or the call
+   after they're defined. */
+const PORTRAIT_FOV = 70;
+const MAX_FRAMING_DIST = 26; // cap so extreme aspects don't push the camera into heavy fog
+function applyResponsiveFraming() {
+  const aspect = window.innerWidth / window.innerHeight;
+  camera.aspect = aspect;
+  if (aspect < 1) {
+    camera.fov = PORTRAIT_FOV;
+    const halfWidth = PEG_X[2] + diskRadius(7) + 0.4; // 7 = widest supported disk count
+    const neededDist = Math.min(
+      MAX_FRAMING_DIST,
+      halfWidth / (Math.tan(THREE.MathUtils.degToRad(PORTRAIT_FOV / 2)) * aspect)
+    );
+    controls.maxDistance = Math.max(11.5, neededDist * 1.05);
+    const curDist = camera.position.distanceTo(controls.target);
+    if (curDist < neededDist) {
+      const dir = camera.position.clone().sub(controls.target).normalize();
+      camera.position.copy(controls.target).addScaledVector(dir, neededDist);
+    }
+  } else {
+    camera.fov = 45;
+    controls.maxDistance = 11.5;
+  }
   camera.updateProjectionMatrix();
+  controls.update();
+}
+
+window.addEventListener('resize', () => {
+  applyResponsiveFraming();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
+window.addEventListener('orientationchange', applyResponsiveFraming);
 
 /* ---------- procedural textures ---------- */
 
@@ -658,6 +692,8 @@ selectRing.visible = false;
 scene.add(selectRing);
 
 function diskRadius(size) { return 0.42 + size * 0.155; }
+
+applyResponsiveFraming(); // set correct initial framing before the first render
 
 function buildDisks() {
   diskGroup.clear();
