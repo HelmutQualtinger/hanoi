@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="38%" r="75%">
+      <stop offset="0%" stop-color="#1c2a1f"/>
+      <stop offset="60%" stop-color="#0d1712"/>
+      <stop offset="100%" stop-color="#05090a"/>
+    </radialGradient>
+    <linearGradient id="pillar" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#a9885a"/>
+      <stop offset="50%" stop-color="#d9b26a"/>
+      <stop offset="100%" stop-color="#8f7343"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" fill="url(#bg)"/>
+
+  <!-- dais -->
+  <ellipse cx="256" cy="404" rx="168" ry="26" fill="#16241c"/>
+  <ellipse cx="256" cy="392" rx="150" ry="22" fill="#203524"/>
+
+  <!-- pillar -->
+  <rect x="242" y="140" width="28" height="248" rx="8" fill="url(#pillar)"/>
+
+  <!-- relic rings, largest to smallest -->
+  <ellipse cx="256" cy="368" rx="118" ry="26" fill="#d9722c"/>
+  <ellipse cx="256" cy="368" rx="118" ry="20" fill="#e0864a"/>
+
+  <ellipse cx="256" cy="332" rx="98" ry="24" fill="#d8a93a"/>
+  <ellipse cx="256" cy="332" rx="98" ry="18" fill="#e2bb54"/>
+
+  <ellipse cx="256" cy="298" rx="78" ry="22" fill="#1f9d63"/>
+  <ellipse cx="256" cy="298" rx="78" ry="16" fill="#33b378"/>
+
+  <ellipse cx="256" cy="266" rx="58" ry="20" fill="#2f6fdb"/>
+  <ellipse cx="256" cy="266" rx="58" ry="14" fill="#4d87e8"/>
+
+  <ellipse cx="256" cy="236" rx="38" ry="18" fill="#8b5fbf"/>
+  <ellipse cx="256" cy="236" rx="38" ry="12" fill="#a67fd4"/>
+
+  <!-- cap -->
+  <circle cx="256" cy="140" r="15" fill="#e9dfc6"/>
+  <circle cx="256" cy="140" r="15" fill="none" stroke="#8f7343" stroke-width="3"/>
+</svg>
